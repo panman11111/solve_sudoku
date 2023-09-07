@@ -283,23 +283,86 @@ def sudoku_solve(problem):
         return answer
     return None
 
+## ローカル実行時用
+
+# def main(filename):
+#     """
+#     数独画像を解析して解答を生成
+
+#     Args:
+#         filename (str): 入力画像ファイル名
+
+#     Returns:
+#         numpy.ndarray: 解答を含む画像
+#     """
+#     # 入力画像をロード
+#     image = cv2.imread(filename, cv2.IMREAD_COLOR)
+#     if image is None:
+#         raise Exception('画像ファイルの読み込みに失敗しました: ' + filename)
+
+#     # 画像が大きすぎる場合、リサイズ
+#     height, width, _ = image.shape
+#     if max(height, width) >= 1500:
+#         scale = 1500 / max(height, width)
+#         image = cv2.resize(image, None, fx=scale, fy=scale)
+#         height, width, _ = image.shape
+
+#     # カラーフォーマットに変換
+#     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+#     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+
+#     # ガウシアンフィルターを適用
+#     blurred_image = apply_gaussian_blur(gray)
+
+#     # モルフォロジー演算を適用
+#     morphology_photo = apply_morphology_operations(blurred_image)
+
+#     # エッジ検出を行う
+#     edges = detect_edges(morphology_photo)
+
+#     # 最大の矩形を検出
+#     frame_pts = detect_frame(edges)
+
+#     # 数独問題を検出
+#     sudoku_image, homography = extract_sudoku(gray, frame_pts)
+#     problem = image2text(sudoku_image, method='tesseract')
+
+#     # 数独を解く
+#     answer = sudoku_solve(problem)
+#     if answer is None:
+#         raise Exception('数独問題の解決に失敗しました！')
+
+#     # 解答を元の画像に埋め込む
+#     overlay = np.zeros((900, 900, 4), dtype='float32')
+#     font = cv2.FONT_HERSHEY_PLAIN
+
+#     for i in range(9):
+#         for j in range(9):
+#             if problem[i, j] == 0:
+#                 x = j * 100 + 20
+#                 y = i * 100 + 100 - 20
+#                 cv2.putText(overlay, str(
+#                     answer[i, j]), (x, y), font, 5.0, (1, 0, 0, 1), 5, cv2.LINE_AA)
+
+#     warp_numbers = cv2.warpPerspective(
+#         overlay, np.linalg.inv(homography), (width, height))
+#     alpha = warp_numbers[:, :, 3:4]
+#     rgb = warp_numbers[:, :, :3]
+#     result = (1.0 - alpha) * (image / 255.0).astype('float32') + alpha * rgb
+
+#     return result
+
 
 def main(image):
     """
     数独画像を解析して解答を生成
 
     Args:
-        filename (str): 入力画像ファイル名
+        image (numpy.ndarray): 入力画像データ (BGRフォーマット)
 
     Returns:
         numpy.ndarray: 解答を含む画像
     """
-    # 入力画像をロード
-    # image = cv2.imread(filename, cv2.IMREAD_COLOR)
-
-    if image is None:
-        raise Exception('画像ファイルの読み込みに失敗しました: ')
-
     # 画像が大きすぎる場合、リサイズ
     height, width, _ = image.shape
     if max(height, width) >= 1500:
