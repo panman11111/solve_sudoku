@@ -1,9 +1,9 @@
 import streamlit as st
-import cv2
+# import cv2
 import numpy as np
 from PIL import Image
 from sudoku_solve import main
-import tempfile
+# import tempfile
 
 st.title('数独アプリ')
 

@@ -371,9 +371,13 @@ def main(image):
         height, width, _ = image.shape
 
     # カラーフォーマットに変換
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-
+    if image.ndim == 2:
+        # グレースケール画像の場合
+        gray = image
+    else:
+        # カラー画像の場合
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     # ガウシアンフィルターを適用
     blurred_image = apply_gaussian_blur(gray)
 
