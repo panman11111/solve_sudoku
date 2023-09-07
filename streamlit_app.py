@@ -17,11 +17,11 @@ if uploaded_image is not None:
         image = np.array(Image.open(uploaded_image))
 
         # OpenCVで処理した画像を一時的なファイルに保存
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_image:
-            temp_image_path = temp_image.name
-            cv2.imwrite(temp_image_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+        # with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_image:
+        #     temp_image_path = temp_image.name
+        #     cv2.imwrite(temp_image_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
         
-        result_image = main(temp_image_path)
+        result_image = main(image)
 
         # 解いた数独を表示
         st.image(result_image, caption='解かれた数独', use_column_width=True)

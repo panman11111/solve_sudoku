@@ -217,7 +217,6 @@ def image2text(sudoku_image, method='tesseract'):
             if ratio > 0.05:
                 text = pytesseract.image_to_string(
                     Image.fromarray(cell), lang='eng', config=config)
-                print(text)
 
                 if text.isdigit():
                     cells[i, j] = int(text)
