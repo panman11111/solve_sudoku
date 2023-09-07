@@ -219,7 +219,7 @@ def image2text(sudoku_image, method='tesseract'):
                     Image.fromarray(cell), lang='eng', config=config)
                 print(text)
 
-                if text != '':
+                if text.isdigit():
                     cells[i, j] = int(text)
 
     print(cells)
