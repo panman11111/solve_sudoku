@@ -284,7 +284,7 @@ def sudoku_solve(problem):
     return None
 
 
-def main(filename):
+def main(image):
     """
     数独画像を解析して解答を生成
 
@@ -295,9 +295,10 @@ def main(filename):
         numpy.ndarray: 解答を含む画像
     """
     # 入力画像をロード
-    image = cv2.imread(filename, cv2.IMREAD_COLOR)
+    # image = cv2.imread(filename, cv2.IMREAD_COLOR)
+
     if image is None:
-        raise Exception('画像ファイルの読み込みに失敗しました: ' + filename)
+        raise Exception('画像ファイルの読み込みに失敗しました: ')
 
     # 画像が大きすぎる場合、リサイズ
     height, width, _ = image.shape
