@@ -1,8 +1,10 @@
 import cv2
 import numpy as np
-import pytesseract
-from PIL import Image
+import matplotlib.pyplot as plt
+from tensorflow.keras.models import load_model
 
+# 手書き数字識別モデルをロード
+model = load_model('models/identification_num_e61.keras', compile=False)
 
 def timer(func):
     """ 実行時間を計測するデコレータ """
@@ -17,8 +19,7 @@ def timer(func):
 
     return wrapper
 
-
-def is_convex(pts):
+def is_convex(pts: list) -> bool:
     """
     ポリゴンが凸かどうかをチェック
 
@@ -43,28 +44,11 @@ def is_convex(pts):
             if sign * det < 0:
                 return False
     return True
-
-
-def apply_gaussian_blur(image, kernel_size=(5, 5)):
-    """
-    画像にガウシアンブラーを適用する関数
-
-    Parameters:
-    - image: 入力画像 (numpy.ndarray)
-    - kernel_size: カーネルサイズ (タプル), デフォルトは (5, 5)
-
-    Returns:
-    - 処理された画像 (numpy.ndarray)
-    """
-    blurred_image = cv2.GaussianBlur(image, kernel_size, 0)
-    return blurred_image
-
-
-def apply_morphology_operations(image, kernel_size=3, dilation_iterations=1, erosion_iterations=1):
+def apply_morphology_operations(image: np.ndarray, kernel_size: int = 3, dilation_iterations: int = 1, erosion_iterations: int = 1) -> np.ndarray:
     """
     画像にモルフォロジー演算（膨張と収縮）を適用する関数。
 
-    Parameters:
+    Args:
         image (numpy.ndarray): 入力画像
         kernel_size (int): カーネルサイズ（膨張および収縮のサイズ）
         dilation_iterations (int): 膨張の反復回数
@@ -85,9 +69,8 @@ def apply_morphology_operations(image, kernel_size=3, dilation_iterations=1, ero
 
     return eroded_image
 
-
 @timer
-def detect_edges(image, thresh1=100.0, thresh2=200.0):
+def detect_edges(image: np.ndarray, thresh1: float = 100.0, thresh2: float = 200.0) -> np.ndarray:
     """
     Canny法を使用して一貫したエッジを検出
 
@@ -114,9 +97,8 @@ def detect_edges(image, thresh1=100.0, thresh2=200.0):
 
     return binary_image
 
-
 @timer
-def detect_frame(edge_image):
+def detect_frame(edge_image: np.ndarray) -> np.ndarray:
     """
     最大の矩形を検出
 
@@ -142,9 +124,8 @@ def detect_frame(edge_image):
     frame = maxarc.reshape((-1, 2))
     return frame
 
-
 @timer
-def extract_sudoku(gray, src_pts):
+def extract_sudoku(gray: np.ndarray, src_pts: np.ndarray) -> (np.ndarray, np.ndarray):
     """
     入力画像から数独領域を抽出
 
@@ -167,9 +148,8 @@ def extract_sudoku(gray, src_pts):
     sudoku_image = cv2.warpPerspective(gray, homography, (900, 900))
     return sudoku_image, homography
 
-
 @timer
-def image2text(sudoku_image, method='tesseract'):
+def image2text(sudoku_image: np.ndarray) -> np.ndarray:
     """
     数独画像から数字を抽出
 
@@ -179,8 +159,6 @@ def image2text(sudoku_image, method='tesseract'):
     Returns:
         numpy.ndarray: 数独の数字を表す行列
     """
-    if method != 'tesseract':
-        raise Exception(f'OCRメソッド "{method}" はサポートされていません')
     sudoku_image = cv2.adaptiveThreshold(
         sudoku_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 31, 11)
     cells = np.zeros((9, 9), dtype='uint8')
@@ -210,22 +188,47 @@ def image2text(sudoku_image, method='tesseract'):
 
             cell = np.pad(cell, (5, 5), mode='constant', constant_values=0)
 
-            config = '--psm 10 --oem 3 -c tessedit_char_whitelist=0123456789'
-            cell = 255 - cell
+            # 数字認識を行う
             ratio = np.count_nonzero(cell < 128) / cell.size
-
             if ratio > 0.05:
-                text = pytesseract.image_to_string(
-                    Image.fromarray(cell), lang='eng', config=config)
+                # 数字を手書き数字識別モデルで認識
+                digit = recognize_digit(cell)
 
-                if text.isdigit():
-                    cells[i, j] = int(text)
+                # 空欄を表すラベル10の場合は0で返す
+                if digit == 10:
+                    digit = 0
+                # digit = digit if digit != 10 else 0
+
+                # 判定結果を配列に格納
+                cells[i, j] = digit
 
     print(cells)
     return cells
 
+def recognize_digit(cell: np.ndarray) -> int:
+    """
+    手書き数字を認識
 
-def sudoku_solve_dfs(problem, start=0):
+    Args:
+        cell (numpy.ndarray): 数字が含まれるセルの画像
+
+    Returns:
+        int: 認識された数字
+    """
+    # セルの画像を正規化してサイズを調整
+    cell = cv2.resize(cell, (28, 28))
+    cell = cell / 255.0  # 正規化
+
+    # モデルに入力するために形状を変更
+    cell = cell.reshape(1, 28, 28, 1)
+
+    # 数字認識モデルで予測
+    prediction = model.predict(cell)
+    digit = np.argmax(prediction)
+
+    return digit
+
+def sudoku_solve_dfs(problem: np.ndarray, start: int = 0) -> bool:
     """
     深さ優先探索による数独問題の解決
 
@@ -266,9 +269,8 @@ def sudoku_solve_dfs(problem, start=0):
 
     return True
 
-
 @timer
-def sudoku_solve(problem):
+def sudoku_solve(problem: np.ndarray) -> np.ndarray:
     """
     数独問題の解決
 
@@ -283,86 +285,21 @@ def sudoku_solve(problem):
         return answer
     return None
 
-## ローカル実行時用
-
-# def main(filename):
-#     """
-#     数独画像を解析して解答を生成
-
-#     Args:
-#         filename (str): 入力画像ファイル名
-
-#     Returns:
-#         numpy.ndarray: 解答を含む画像
-#     """
-#     # 入力画像をロード
-#     image = cv2.imread(filename, cv2.IMREAD_COLOR)
-#     if image is None:
-#         raise Exception('画像ファイルの読み込みに失敗しました: ' + filename)
-
-#     # 画像が大きすぎる場合、リサイズ
-#     height, width, _ = image.shape
-#     if max(height, width) >= 1500:
-#         scale = 1500 / max(height, width)
-#         image = cv2.resize(image, None, fx=scale, fy=scale)
-#         height, width, _ = image.shape
-
-#     # カラーフォーマットに変換
-#     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-#     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-
-#     # ガウシアンフィルターを適用
-#     blurred_image = apply_gaussian_blur(gray)
-
-#     # モルフォロジー演算を適用
-#     morphology_photo = apply_morphology_operations(blurred_image)
-
-#     # エッジ検出を行う
-#     edges = detect_edges(morphology_photo)
-
-#     # 最大の矩形を検出
-#     frame_pts = detect_frame(edges)
-
-#     # 数独問題を検出
-#     sudoku_image, homography = extract_sudoku(gray, frame_pts)
-#     problem = image2text(sudoku_image, method='tesseract')
-
-#     # 数独を解く
-#     answer = sudoku_solve(problem)
-#     if answer is None:
-#         raise Exception('数独問題の解決に失敗しました！')
-
-#     # 解答を元の画像に埋め込む
-#     overlay = np.zeros((900, 900, 4), dtype='float32')
-#     font = cv2.FONT_HERSHEY_PLAIN
-
-#     for i in range(9):
-#         for j in range(9):
-#             if problem[i, j] == 0:
-#                 x = j * 100 + 20
-#                 y = i * 100 + 100 - 20
-#                 cv2.putText(overlay, str(
-#                     answer[i, j]), (x, y), font, 5.0, (1, 0, 0, 1), 5, cv2.LINE_AA)
-
-#     warp_numbers = cv2.warpPerspective(
-#         overlay, np.linalg.inv(homography), (width, height))
-#     alpha = warp_numbers[:, :, 3:4]
-#     rgb = warp_numbers[:, :, :3]
-#     result = (1.0 - alpha) * (image / 255.0).astype('float32') + alpha * rgb
-
-#     return result
-
-
-def main(image):
+def main(filename: str) -> np.ndarray:
     """
     数独画像を解析して解答を生成
 
     Args:
-        image (numpy.ndarray): 入力画像データ (BGRフォーマット)
+        filename (str): 入力画像ファイル名
 
     Returns:
         numpy.ndarray: 解答を含む画像
     """
+    # 入力画像をロード
+    image = cv2.imread(filename, cv2.IMREAD_COLOR)
+    if image is None:
+        raise Exception('画像ファイルの読み込みに失敗しました: ' + filename)
+
     # 画像が大きすぎる場合、リサイズ
     height, width, _ = image.shape
     if max(height, width) >= 1500:
@@ -371,28 +308,26 @@ def main(image):
         height, width, _ = image.shape
 
     # カラーフォーマットに変換
-    if image.ndim == 2:
-        # グレースケール画像の場合
-        gray = image
-    else:
-        # カラー画像の場合
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+
     # ガウシアンフィルターを適用
-    blurred_image = apply_gaussian_blur(gray)
+    blurred_image = cv2.GaussianBlur(gray, (5, 5), 0)
 
     # モルフォロジー演算を適用
     morphology_photo = apply_morphology_operations(blurred_image)
 
     # エッジ検出を行う
     edges = detect_edges(morphology_photo)
+    plt.imshow(edges)
+    plt.show()
 
     # 最大の矩形を検出
     frame_pts = detect_frame(edges)
 
     # 数独問題を検出
     sudoku_image, homography = extract_sudoku(gray, frame_pts)
-    problem = image2text(sudoku_image, method='tesseract')
+    problem = image2text(sudoku_image)
 
     # 数独を解く
     answer = sudoku_solve(problem)
